@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 /**
  * The main class of the application.
@@ -44,7 +45,8 @@ public class App extends Application {
         fileChooser.setTitle("Choose File");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
         File selectedFile = fileChooser.showOpenDialog(stage);*/
-        File selectedFile = new File("D:\\Downloads\\FL0.csv");
+
+        File selectedFile = new File("/Users/vismayb/Downloads/FL0.CSV");
 
         if (selectedFile != null) {
             System.out.println("File selected: " + selectedFile.getAbsolutePath());
@@ -59,7 +61,7 @@ public class App extends Application {
         yAxis.setLabel("Altitude");
         LineChart<Number, Number> lineChart = new LineChart<>(xAxis, yAxis);
         lineChart.setLegendVisible(false);
-        Map<Double, Double> data = new HashMap<>();
+        Map<Double, Double> data = new TreeMap<>();
 
         try (Reader reader = new FileReader(selectedFile)) {
             Iterable<CSVRecord> records = CSVFormat.DEFAULT.builder()
@@ -86,20 +88,25 @@ public class App extends Application {
 
 
             for (CSVRecord record : records) {
-                data.put(Double.parseDouble(record.get("timE")), Double.parseDouble(record.get("altitude")));
+                var timE = Double.parseDouble(record.get("timE"));
+                var altitude = Double.parseDouble(record.get("altitude"));
+                System.out.println(timE + " " + altitude);
+                data.put(timE, altitude);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
         XYChart.Series<Number, Number> series = new XYChart.Series<>();
+        data.forEach((x, y) -> System.out.println(x + " " + y));
         data.forEach((x, y) -> series.getData().add(new XYChart.Data<>(x, y)));
 
         System.out.println(series.getData().size());
+        System.out.println(series.getData().getLast().getXValue());
         double dataMinX = series.getData().getFirst().getXValue().doubleValue();
         double dataMaxX = series.getData().getLast().getXValue().doubleValue();
 
-        xAxis.setAutoRanging(true);
+        xAxis.setAutoRanging(false);
         xAxis.setForceZeroInRange(false);
         xAxis.setLowerBound(dataMinX);
         xAxis.setUpperBound(dataMaxX);
@@ -144,6 +151,8 @@ public class App extends Application {
                 lastMouseX[0] = e.getX();
             }
         });
+
+
         plotArea.setOnMouseDragged(e -> {
             if (e.getButton() != MouseButton.PRIMARY) return;
             if (Double.isNaN(lastMouseX[0])) return;
