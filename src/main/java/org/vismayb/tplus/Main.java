@@ -1,6 +1,6 @@
-package com.example.app;
+package org.vismayb.tplus;
 
-import com.example.app.core.App;
+import org.vismayb.tplus.core.App;
 import javafx.application.Application;
 
 /**

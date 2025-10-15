@@ -1,0 +1,5 @@
+.chart-series-line {
+    -fx-background-width: 0;
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
