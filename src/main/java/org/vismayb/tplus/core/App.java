@@ -1,7 +1,10 @@
 package org.vismayb.tplus.core;
 
+import com.interactivemesh.jfx.importer.obj.ObjModelImporter;
 import javafx.application.Application;
+import javafx.scene.Group;
 import javafx.scene.Node;
+import javafx.scene.PerspectiveCamera;
 import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
@@ -9,16 +12,16 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.shape.Line;
-import javafx.stage.FileChooser;
+import javafx.scene.shape.Mesh;
+import javafx.scene.shape.MeshView;
 import javafx.stage.Stage;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
-import org.w3c.dom.html.HTMLImageElement;
+import org.fxyz3d.importers.Importer3D;
+import org.fxyz3d.utils.CameraTransformer;
+import org.vismayb.tplus.views.GraphView;
 
 import java.io.*;
-import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -27,6 +30,7 @@ import java.util.TreeMap;
  * The main class of the application.
  */
 public class App extends Application {
+    Map<Double, Double> data = new TreeMap<>();
     /**
      * The entry point of the application gui.
      * @param stage The primary stage for the application.
@@ -41,30 +45,44 @@ public class App extends Application {
         // Create the root layout
         var root = new BorderPane();
 
-        /*FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Choose File");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-        File selectedFile = fileChooser.showOpenDialog(stage);*/
-
-        File selectedFile = new File("/Users/vismayb/Downloads/FL0.CSV");
-
-        if (selectedFile != null) {
-            System.out.println("File selected: " + selectedFile.getAbsolutePath());
+        if (State.getInstance().file != null) {
+            System.out.println("File selected: " + State.getInstance().file.getAbsolutePath());
+            loadCSV();
         } else {
             System.out.println("File selection cancelled.");
             throw new Exception("No file selected");
         }
 
-        NumberAxis xAxis = new NumberAxis();
-        NumberAxis yAxis = new NumberAxis();
-        xAxis.setLabel("Time");
-        yAxis.setLabel("Altitude");
-        LineChart<Number, Number> lineChart = new LineChart<>(xAxis, yAxis);
-        lineChart.setLegendVisible(false);
-        Map<Double, Double> data = new TreeMap<>();
+        var series = new XYChart.Series<Number, Number>();
+        data.forEach((x, y) -> System.out.println(x + " " + y));
+        data.forEach((x, y) -> series.getData().add(new XYChart.Data<>(x, y)));
 
-        try (Reader reader = new FileReader(selectedFile)) {
-            Iterable<CSVRecord> records = CSVFormat.DEFAULT.builder()
+
+        //var graphView = new GraphView();
+        //graphView.addSeries(series);
+        //root.setCenter(graphView.getLineChart());
+        ObjModelImporter importer = new ObjModelImporter();
+
+        PerspectiveCamera camera = new PerspectiveCamera(true);
+        camera.setNearClip(0.1);
+        camera.setFarClip(10000.0);
+        camera.setTranslateZ(-500);
+        camera.setFieldOfView(20);
+
+        CameraTransformer cameraTransformer = new CameraTransformer();
+        cameraTransformer.getChildren().add(camera);
+        cameraTransformer.ry.setAngle(-30.0);
+        cameraTransformer.rx.setAngle(-15.0);
+
+        // Create the scene
+        var scene = new Scene(root);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    private void loadCSV() {
+        try (Reader reader = new FileReader(State.getInstance().file)) {
+            State.getInstance().logRecords = CSVFormat.DEFAULT.builder()
                     .setHeader(
                             "timE",
                             "vertAccel",
@@ -86,8 +104,7 @@ public class App extends Application {
                     .get()
                     .parse(reader);
 
-
-            for (CSVRecord record : records) {
+            for (CSVRecord record : State.getInstance().logRecords) {
                 var timE = Double.parseDouble(record.get("timE"));
                 var altitude = Double.parseDouble(record.get("altitude"));
                 System.out.println(timE + " " + altitude);
@@ -96,102 +113,5 @@ public class App extends Application {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        XYChart.Series<Number, Number> series = new XYChart.Series<>();
-        data.forEach((x, y) -> System.out.println(x + " " + y));
-        data.forEach((x, y) -> series.getData().add(new XYChart.Data<>(x, y)));
-
-        System.out.println(series.getData().size());
-        System.out.println(series.getData().getLast().getXValue());
-        double dataMinX = series.getData().getFirst().getXValue().doubleValue();
-        double dataMaxX = series.getData().getLast().getXValue().doubleValue();
-
-        xAxis.setAutoRanging(false);
-        xAxis.setForceZeroInRange(false);
-        xAxis.setLowerBound(dataMinX);
-        xAxis.setUpperBound(dataMaxX);
-
-        Node plotArea = lineChart.lookup(".chart-plot-background");
-
-        plotArea.addEventFilter(ScrollEvent.SCROLL, e -> {
-            if (e.getDeltaY() == 0) return;
-
-            // Zoom factor: >1 zoom in, <1 zoom out
-            double zoomFactor = Math.pow(1.0015, e.getDeltaY()); // smooth & fast
-            double mouseXInAxis = xAxis.sceneToLocal(e.getSceneX(), 0).getX();
-            Number xValN = xAxis.getValueForDisplay(mouseXInAxis);
-            if (xValN == null) return;
-            double anchorX = xValN.doubleValue();
-
-            double min = xAxis.getLowerBound();
-            double max = xAxis.getUpperBound();
-
-            // Interpolate bounds toward/away from anchor (cursor)
-            double newMin = anchorX + (min - anchorX) / zoomFactor;
-            double newMax = anchorX + (max - anchorX) / zoomFactor;
-
-            // Keep some minimum span and clamp to data domain
-            double minSpan = 1e-9; // avoid collapse
-            if (newMax - newMin < minSpan) return;
-            newMin = Math.max(newMin, dataMinX);
-            newMax = Math.min(newMax, dataMaxX);
-
-            // If clamping inverted, bail
-            if (newMax - newMin < minSpan) return;
-
-            xAxis.setLowerBound(newMin);
-            xAxis.setUpperBound(newMax);
-
-            e.consume();
-        });
-
-        final double[] lastMouseX = {Double.NaN};
-        plotArea.setOnMousePressed(e -> {
-            if (e.getButton() == MouseButton.PRIMARY) {
-                lastMouseX[0] = e.getX();
-            }
-        });
-
-
-        plotArea.setOnMouseDragged(e -> {
-            if (e.getButton() != MouseButton.PRIMARY) return;
-            if (Double.isNaN(lastMouseX[0])) return;
-
-            double dx = e.getX() - lastMouseX[0];
-            lastMouseX[0] = e.getX();
-
-            // Convert dx (pixels) → value delta using current scale
-            double pixelToValue = (xAxis.getUpperBound() - xAxis.getLowerBound())
-                    / xAxis.getWidth();
-            double delta = -dx * pixelToValue; // drag right → move window right
-
-            double newMin = xAxis.getLowerBound() + delta;
-            double newMax = xAxis.getUpperBound() + delta;
-
-            // Clamp to data domain
-            double span = xAxis.getUpperBound() - xAxis.getLowerBound();
-            if (newMin < dataMinX) {
-                newMin = dataMinX;
-                newMax = dataMinX + span;
-            }
-            if (newMax > dataMaxX) {
-                newMax = dataMaxX;
-                newMin = dataMaxX - span;
-            }
-
-            xAxis.setLowerBound(newMin);
-            xAxis.setUpperBound(newMax);
-        });
-        plotArea.setOnMouseReleased(e -> lastMouseX[0] = Double.NaN);
-
-        lineChart.getData().add(series);
-        lineChart.setCreateSymbols(false);
-        root.setCenter(lineChart);
-
-        // Create the scene
-        var scene = new Scene(root);
-        scene.getStylesheets().add(Objects.requireNonNull(getClass().getResource("chart-style.css")).toExternalForm());
-        stage.setScene(scene);
-        stage.show();
     }
 }

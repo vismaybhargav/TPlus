@@ -32,6 +32,16 @@
             <version>21.0.27</version>
         </dependency>
         -->
+        <dependency>
+            <groupId>org.fxyz3d</groupId>
+            <artifactId>fxyz3d</artifactId>
+            <version>0.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.fxyz3d</groupId>
+            <artifactId>fxyz3d-importers</artifactId>
+            <version>0.6.0</version>
+        </dependency>
     </dependencies>
 
     <build>

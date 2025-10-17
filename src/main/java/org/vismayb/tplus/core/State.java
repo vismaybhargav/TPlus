@@ -1,5 +1,9 @@
 package org.vismayb.tplus.core;
 
+import org.apache.commons.csv.CSVRecord;
+
+import java.io.File;
+
 public class State {
     private static State instance;
 
@@ -14,6 +18,7 @@ public class State {
         return instance;
     }
 
-    public boolean file = false;
+    public File file = new File("D:\\Downloads\\FL0.CSV");
     public String currentFilePath = "";
+    public Iterable<CSVRecord> logRecords = null;
 }
